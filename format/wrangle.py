@@ -232,7 +232,6 @@ model_df = offense_defense.join(players_by_clip,'clip_id','semi')
 #%%
 
 from sklearn.model_selection import train_test_split
-from functools import reduce
 
 clip_ids = (model_df
  .select('clip_id','coverage','hierarchy')

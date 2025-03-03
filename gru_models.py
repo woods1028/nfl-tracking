@@ -1,5 +1,9 @@
+#%%
+
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Masking, Dense, Dropout, Input, Concatenate, GRU
+
+#%%
 
 def gru_model(transition_shape, defender_shape, offense_shape):
     """
@@ -61,7 +65,10 @@ def gru_model(transition_shape, defender_shape, offense_shape):
     
     return model
 
-def gru_model_w_mask(transition_feature_dim, defender_feature_dim, offense_feature_dim, mask_value):
+#%%
+
+def gru_model_w_mask(transition_feature_dim, defender_feature_dim, offense_feature_dim, 
+                     mask_value, model_type = 'sigmoid', num_classes = 2):
     """
     Build a model using GRU units that can handle variable-length sequences using RaggedTensors.
     """
@@ -104,14 +111,21 @@ def gru_model_w_mask(transition_feature_dim, defender_feature_dim, offense_featu
     x = Dropout(0.1)(x)
     #x = Dense(4, activation='relu')(x)
     #x = Dropout(0.2) (x)
+
+    if model_type == 'sigmoid':
     
-    # Final output - binary classification for single-high vs not
-    output = Dense(1, activation='sigmoid')(x)
+        output = Dense(1, activation = model_type)(x)
+        loss_function = 'binary_crossentropy'
+
+    if model_type == 'softmax':
+
+        output = Dense(num_classes, activation = model_type)(x)
+        loss_function = 'sparse_categorical_crossentropy'
     
     model = Model(inputs=[transition_input, defender_input, offense_input], outputs=output)
     model.compile(
-        optimizer='adam', 
-        loss='binary_crossentropy',
+        optimizer = 'adam', 
+        loss = loss_function,
         metrics=['accuracy']
     )
 

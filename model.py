@@ -1,12 +1,9 @@
 #%%
 
-import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from snwflk import snowflake_connect
-from gru_models import gru_model_w_mask
 from features import process_play_data_w_mask
 
 import os
@@ -15,9 +12,7 @@ from snowflake.snowpark import functions as F
 
 #%%
 
-def get_model_inputs(session, label_col, mask_value):
-
-    session = snowflake_connect()
+def get_model_inputs(session, subset, label_col, mask_value):
 
     set_split = session.table('set_split')
 
@@ -29,13 +24,30 @@ def get_model_inputs(session, label_col, mask_value):
      .filter(F.col('set').in_(['ana','assess']))
     )
 
+    if subset is not None:
+
+        model_df = (model_df
+         .join(
+             subset,
+             on = 'CLIP_ID',
+             how = 'inner'
+            )
+         )
+
     ana_set_df = model_df.filter(F.col('set') == "ana")
-    ana_clip_ids_labels = ana_set_df.select('clip_id',label_col).drop_duplicates().to_pandas().sort_values('CLIP_ID').values    
+    assess_set_df = model_df.filter(F.col('set') == "assess")
+
+    ana_clip_ids_labels, assess_clip_ids_labels = [(df
+     .select('clip_id',label_col)
+     .drop_duplicates()
+     .to_pandas()
+     .sort_values('CLIP_ID')
+     .values 
+    ) for df in [ana_set_df, assess_set_df]]
+
     ana_clip_ids = [x[0] for x in ana_clip_ids_labels]
     ana_labels = [x[1] for x in ana_clip_ids_labels]
 
-    assess_set_df = model_df.filter(F.col('set') == "assess")
-    assess_clip_ids_labels = assess_set_df.select('clip_id',label_col).drop_duplicates().to_pandas().sort_values('CLIP_ID').values
     assess_clip_ids = [x[0] for x in assess_clip_ids_labels]
     assess_labels = [x[1] for x in assess_clip_ids_labels]
 
@@ -58,15 +70,13 @@ def get_model_inputs(session, label_col, mask_value):
 
     return model_inputs
 
-def model_train(session, batch_size, mask_value, num_epochs):
+def model_train(session, model, subset, label_col, mask_value, batch_size, num_epochs):
 
-    ana_model_inputs, assess_model_inputs = get_model_inputs(session)
-
-    model = gru_model_w_mask(
-        transition_feature_dim = 14,
-        defender_feature_dim = 42,
-        offense_feature_dim = 36,
-        mask_value = mask_value
+    ana_model_inputs, assess_model_inputs = get_model_inputs(
+        session,
+        subset, 
+        label_col, 
+        mask_value
     )
 
     # Train model
@@ -79,7 +89,11 @@ def model_train(session, batch_size, mask_value, num_epochs):
         verbose=1
     )
 
-    train_preds = (pd.DataFrame(model.predict(ana_model_inputs[0]),columns = ['pred'])
+    train_preds, test_preds = [model.predict(x) for x in [ana_model_inputs[0],assess_model_inputs[0]]]
+
+    pred_col_names = ['pred' + str(x) for x in range(len(train_preds[0]))]
+
+    train_preds = (pd.DataFrame(train_preds,columns = pred_col_names)
      .assign(
          set = 'ana',
          actual = ana_model_inputs[1],
@@ -87,7 +101,7 @@ def model_train(session, batch_size, mask_value, num_epochs):
         )
     )
 
-    test_preds = (pd.DataFrame(model.predict(assess_model_inputs[0]),columns = ['pred'])
+    test_preds = (pd.DataFrame(test_preds,columns = pred_col_names)
      .assign(
          set = 'assess',
          actual = assess_model_inputs[1],
