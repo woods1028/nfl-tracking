@@ -269,3 +269,8 @@ model_df.write.save_as_table(
     "MODEL_DF", 
     mode = "overwrite"
 )
+
+coverage_mapping.write.save_as_table(
+    "COVERAGE_MAPPING", 
+    mode = "overwrite"
+)
