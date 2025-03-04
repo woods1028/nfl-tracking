@@ -1,3 +1,5 @@
+import numpy as np
+
 #%%
 
 import pandas as pd
@@ -117,16 +119,40 @@ def model_train(session, model, subset, label_col, mask_value, batch_size, num_e
 
 def eval(history, preds, return_type):
 
+    #%%
+
+    pred_columns = [x for x in preds.columns if 'pred' in x]
+
+    preds_categorical = (preds
+     .melt(
+         id_vars = ['set','actual','clip_id'],
+         var_name = 'class',
+         value_name = 'pct',
+         value_vars = pred_columns
+        )
+     .assign(
+         pred_class = lambda x: x['class'].str.replace('pred','').astype(int),
+         max_pct = lambda x: x.groupby('clip_id')['pct'].transform('max'),
+         pred = lambda x: x.apply(lambda x: x['pred_class'] if x['pct'] == x['max_pct'] else np.nan, axis = 1)
+        )
+     [['set','clip_id','actual','pred_class','pred','pct']]
+     )
+    
+    #%%
+
     if return_type == 'accuracy matrix':
 
         accuracy_matrix = (preds
-        .assign(pred = lambda x: x['pred'].apply(lambda x: 1 if x > .5 else 0),
-                match = lambda x: x['pred'] == x['actual'])
-        .groupby(['set','pred'])
-        .agg(count = ('clip_id','size'),
-            correct = ('match','sum'))
-        .reset_index()
-        .assign(pct = lambda x: round(x['correct']/x['count'],2))
+         .merge(
+             preds_categorical.query('pred == pred')[['clip_id','pred']],
+             on = 'clip_id'
+            )
+         .assign(match = lambda x: x['pred'] == x['actual'])
+         .groupby(['set','pred'])
+         .agg(count = ('clip_id','size'),
+             correct = ('match','sum'))
+         .reset_index()
+         .assign(pct = lambda x: round(x['correct']/x['count'],2))
         )
 
         return accuracy_matrix
@@ -183,35 +209,66 @@ def eval(history, preds, return_type):
         bins = [x/10 for x in range(11)]
         bin_labels = [x/100 for x in range(5,105,10)]
 
+        #%%
+
         bin_metrics = (preds
+         .merge(
+             preds_categorical[['clip_id','pred_class','pred','pct']],
+             on = 'clip_id'
+            )
+         .assign(match = lambda x: x['actual'] == x['pred'])
          .assign(bin = lambda x: pd.cut(
-             x['pred'],
+             x['pct'],
              bins = bins,
              labels = bin_labels
             ))
          .assign(bin = lambda x: x['bin'].astype(float))
          .groupby(['set','actual','bin'])
-         .agg(count = ('clip_id','size'))
+         .agg(count = ('clip_id','nunique'),
+              correct = ('match','sum'))
          .reset_index()
-         .assign(pct = lambda x: x['count']/x.groupby(['set','bin'])['count'].transform('sum'))
-         .query('actual == 1')
+         .assign(pct = lambda x: x['correct']/x['count'])
+         .query('bin > .5 and pct != 0')
         )
 
-        sns.scatterplot(
-            data = bin_metrics,
-            x = 'bin',
-            y = 'pct',
-            hue = 'set',
-            size = 'count'
-        )
+        #%%
 
-        plt.title("Bin Accuracy")
-        plt.xticks(bin_labels)
-        plt.yticks(bin_labels)
-        plt.grid(True) 
+        g = sns.FacetGrid(bin_metrics, col="actual", col_wrap = len(pred_columns), height=4)
+
+        g.map_dataframe(sns.scatterplot,x = 'bin',y = 'pct',hue = 'set',size = 'count')
+
+        g.add_legend() 
+
+        for ax in g.axes.flat:
+            ax.grid(True, linewidth = 0.5)
+            ax.set_xticks(bin_labels[5:])
+            ax.set_yticks(bin_labels[5:])
+
+        handles, labels = g.legend.legend_handles, [t.get_text() for t in g._legend.texts]
+        g._legend.remove()  # Remove the default legend
+
+        g.figure.legend(handles[1:3], labels[1:3], title="set", loc="center right", frameon=False)
+
         plt.show()
 
-    return []
+        #%%
+
+    if return_type == 'confusion matrix':
+
+        confusion_matrix = (preds_categorical
+         .groupby(['actual','pred'])
+         .agg(
+             count = ('clip_id','size'),
+            )
+         .reset_index()
+         .assign(pct = lambda x: x['count']/x.groupby('actual')['count'].transform('sum'))
+         .assign(pct = lambda x: x['pct'].round(2))
+         .pivot(index = 'actual',columns = 'pred',values = 'pct')
+        )
+
+        return confusion_matrix
+
+    return None
 
 
     
