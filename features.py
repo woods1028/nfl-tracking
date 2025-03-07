@@ -1,3 +1,5 @@
+#%%
+
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -182,7 +184,22 @@ def extract_player_features(df, side):
 
     return side_features
 
+def process_static_features(df):
+
+    static_features_= (df
+     .select('clip_id','down','yardsToGo','spot_y')
+     .drop_duplicates()
+     .to_pandas()
+     .sort_values('CLIP_ID')
+     [['DOWN','YARDSTOGO','SPOT_Y']]
+     .to_numpy()
+    )    
+
+    return static_features_
+
 def process_play_data_w_mask(session, df, labels, mask_value):
+
+    static_features = process_static_features(df)
 
     transition_features = extract_transition_features(session, df)
     defender_features = extract_player_features(df, side = 'defense')
@@ -218,4 +235,4 @@ def process_play_data_w_mask(session, df, labels, mask_value):
         value = mask_value
     )
     
-    return padded_transitions, padded_defenders, padded_offense, np.array(labels)
+    return padded_transitions, padded_defenders, padded_offense,  static_features, np.array(labels)

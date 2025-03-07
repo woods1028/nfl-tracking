@@ -130,3 +130,75 @@ def gru_model_w_mask(transition_feature_dim, defender_feature_dim, offense_featu
     )
 
     return model
+
+#%%
+
+def gru_model_w_static(
+        transition_feature_dim, defender_feature_dim, offense_feature_dim, static_shape,
+        mask_value, model_type = 'sigmoid', num_classes = 2
+    ):
+    
+    # Zone transitions input
+    transition_input = Input(shape = (None, transition_feature_dim), name='transition_input')
+    transition_masked = Masking(mask_value = mask_value)(transition_input)
+    transition_gru = GRU(64, return_sequences=True, recurrent_activation='sigmoid', reset_after=False)(transition_masked)
+    transition_gru = Dropout(0.3)(transition_gru)
+    transition_gru = GRU(32, recurrent_activation='sigmoid', reset_after=False)(transition_gru)
+    transition_features = Dense(32, activation='relu')(transition_gru)
+    
+    # Defender tracking input
+    defender_input = Input(shape = (None, defender_feature_dim), name='defender_input')
+    defender_masked = Masking(mask_value = mask_value)(defender_input)
+    defender_gru = GRU(128, return_sequences=True, recurrent_activation='sigmoid', reset_after=False)(defender_masked)
+    defender_gru = Dropout(0.3)(defender_gru)
+    defender_gru = GRU(64, recurrent_activation='sigmoid', reset_after=False)(defender_gru)
+    defender_features = Dense(64, activation='relu')(defender_gru)
+
+    # Defender tracking input
+    offense_input = Input(shape = (None, offense_feature_dim), name='offense_input')
+    offense_masked = Masking(mask_value = mask_value)(offense_input)
+    offense_gru = GRU(128, return_sequences=True, recurrent_activation='sigmoid', reset_after=False)(offense_masked)
+    offense_gru = Dropout(0.3)(offense_gru)
+    offense_gru = GRU(64, recurrent_activation='sigmoid', reset_after=False)(offense_gru)
+    offense_features = Dense(64, activation='relu')(offense_gru)
+
+    # Static features input
+    static_input = Input(shape=static_shape, name='static_input')
+
+    # Combine both feature streams
+    combined = Concatenate()([transition_features, defender_features, offense_features, static_input])
+    
+    # Classification layers
+    x = Dense(64, activation='relu')(combined)
+    x = Dropout(0.4)(x)
+    x = Dense(32, activation='relu')(x)
+    x = Dropout(0.3)(x)
+    x = Dense(16, activation='relu')(x)
+    x = Dropout(0.2)(x)
+    x = Dense(8, activation='relu')(x)
+    x = Dropout(0.1)(x)
+    x = Dense(4, activation='relu')(x)
+    x = Dropout(0.2) (x)
+
+    if model_type == 'sigmoid':
+    
+        output = Dense(1, activation = model_type)(x)
+        loss_function = 'binary_crossentropy'
+
+    if model_type == 'softmax':
+
+        output = Dense(num_classes, activation = model_type)(x)
+        loss_function = 'sparse_categorical_crossentropy'
+    
+    model = Model(
+        inputs=[transition_input, defender_input, offense_input, static_input], 
+        outputs=output
+    )
+
+    model.compile(
+        optimizer = 'adam', 
+        loss = loss_function,
+        metrics=['accuracy']
+    )
+
+    return model
