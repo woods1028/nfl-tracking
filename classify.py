@@ -1,7 +1,7 @@
 #%%
 
 import pandas as pd
-import datetime
+from functools import partial
 import snowflake.snowpark.functions as F
 from snwflk import snowflake_connect
 from gru_models import gru_model_w_mask, gru_model_w_static
@@ -18,12 +18,11 @@ model_df = (session.table("model_df")
      set_split.select('clip_id','set'),
      'clip_id'
     )
- .filter(F.col('set').in_(['ana','assess']))
 )
 
 coverage_mapping = session.table('coverage_mapping').to_pandas()
 
-#%%
+#%% cv for 2-hierarchy model
 
 hierarchy_mapping = pd.DataFrame({
     'coverage':[0,1],
@@ -42,22 +41,8 @@ hierarchy_model = gru_model_w_static(
     num_classes = 2
 )
 
-hierarchy_model, hierarchy_history, hierarchy_preds = model_train(
-    session, 
-    hierarchy_model, 
-    model_df,
-    None, 
-    'hierarchy', 
-    mask_value, 
-    batch_size = 32, 
-    num_epochs = 30
-)
-
-#%%
-
-mask_value = -9999
-
-hierarchy_model = gru_model_w_static(
+hierarchy_model = partial(
+    gru_model_w_static,
     transition_feature_dim = 14,
     defender_feature_dim = 42,
     offense_feature_dim = 36,
@@ -67,10 +52,10 @@ hierarchy_model = gru_model_w_static(
     num_classes = 2
 )
 
-hierarchy_model, hierarchy_history, hierarchy_preds = model_train_cv(
+hierarchy_models, hierarchy_histories, hierarchy_preds = model_train_cv(
     session, 
     hierarchy_model, 
-    model_df,
+    model_df.filter(F.col('set').in_(['ana','assess'])),
     set_split,
     None, 
     'hierarchy', 
@@ -79,19 +64,55 @@ hierarchy_model, hierarchy_history, hierarchy_preds = model_train_cv(
     num_epochs = 30
 )
 
+eval_cv(hierarchy_histories, hierarchy_preds, 'accuracy matrix', hierarchy_mapping)
+
+eval_cv(hierarchy_histories, hierarchy_preds, 'density', hierarchy_mapping)
+
+eval_cv(hierarchy_histories, hierarchy_preds, 'history', hierarchy_mapping)
+
+eval_cv(hierarchy_histories, hierarchy_preds, 'confusion matrix', hierarchy_mapping)
+
+#%% 2-hierarchy model full
+
+mask_value = -9999
+
+hierarchy_model_full = gru_model_w_static(
+    transition_feature_dim = 14,
+    defender_feature_dim = 42,
+    offense_feature_dim = 36,
+    static_shape = (3,),
+    mask_value = mask_value,
+    model_type = 'sigmoid',
+    num_classes = 2
+)
+
+hierarchy_model_full, hierarchy_history_full, hierarchy_preds_full = model_train(
+    session = session, 
+    model = hierarchy_model_full, 
+    model_df = model_df,
+    train_set = ['assess','ana'],
+    test_set = 'test',
+    subset = None, 
+    label_col = 'hierarchy', 
+    class_weighting = None,
+    mask_value = mask_value, 
+    batch_size = 32, 
+    num_epochs = 30
+)
+
 #%%
 
-eval(hierarchy_history, hierarchy_preds, 'accuracy matrix', hierarchy_mapping)
+eval(hierarchy_history_full, hierarchy_preds_full, 'accuracy matrix', hierarchy_mapping)
 
-eval(hierarchy_history, hierarchy_preds, 'density', hierarchy_mapping)
+eval(hierarchy_history_full, hierarchy_preds_full, 'density', hierarchy_mapping)
 
-eval(hierarchy_history, hierarchy_preds, 'history', hierarchy_mapping)
+eval(hierarchy_history_full, hierarchy_preds_full, 'history', hierarchy_mapping)
 
-eval(hierarchy_history, hierarchy_preds, 'bin accuracy', hierarchy_mapping)
+eval(hierarchy_history_full, hierarchy_preds_full, 'bin accuracy', hierarchy_mapping)
 
 #%%
 
-hierarchy_model.save('hierarchy_model.keras')
+hierarchy_model_full.save('hierarchy_model.keras')
 
 #%%
 
