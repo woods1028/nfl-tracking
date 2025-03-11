@@ -1,6 +1,7 @@
 #%%
 
 import pandas as pd
+import datetime
 from functools import partial
 import snowflake.snowpark.functions as F
 from snwflk import snowflake_connect
@@ -22,7 +23,10 @@ model_df = (session.table("model_df")
 
 coverage_mapping = session.table('coverage_mapping').to_pandas()
 
-#%% cv for 2-hierarchy model
+#%% 
+"""
+CV for 2-class hierarchical model
+"""
 
 hierarchy_mapping = pd.DataFrame({
     'coverage':[0,1],
@@ -72,7 +76,11 @@ eval_cv(hierarchy_histories, hierarchy_preds, 'history', hierarchy_mapping)
 
 eval_cv(hierarchy_histories, hierarchy_preds, 'confusion matrix', hierarchy_mapping)
 
-#%% 2-hierarchy model full
+#%% 
+
+"""
+Full 2-class hierarchical model
+"""
 
 mask_value = -9999
 
@@ -113,8 +121,6 @@ eval(hierarchy_history_full, hierarchy_preds_full, 'bin accuracy', hierarchy_map
 #%%
 
 hierarchy_model_full.save('hierarchy_model.keras')
-
-#%%
 
 # (hierarchy_preds
 #  .rename(columns = {'clip_id':'CLIP_ID'})
