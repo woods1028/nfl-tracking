@@ -15,7 +15,8 @@ def extract_transition_features(session, df):
     )
 
     x_bins = [-50,-10,10,50]
-    y_bins = [-100, -20, -10, 0, 15]
+    #y_bins = [-100, -20, -10, 0, 15]
+    y_bins = [-100, -20, -15, 0, 15]
 
     x_labels = ["left third","middle","right third"]
     y_labels = ["real deep", "deep", "hooks", "blitz"]

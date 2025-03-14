@@ -93,7 +93,7 @@ def model_train(session, model, model_df, subset, train_set, test_set, label_col
     history = model.fit(
         ana_model_inputs[0],
         ana_model_inputs[1],
-        validation_data=(assess_model_inputs[:-1]),
+        validation_data = (assess_model_inputs[:-1]),
         class_weight = class_weights_dict,
         epochs = num_epochs,
         batch_size = batch_size,
@@ -301,6 +301,7 @@ def eval(history, preds, return_type, coverage_mapping):
          .merge(coverage_mapping.rename(columns = {'coverage':'actual','class':'coverage_actual'})[['actual','coverage_actual']], on = 'actual')
          .merge(coverage_mapping.rename(columns = {'coverage':'pred','class':'coverage_pred'})[['pred','coverage_pred']], on = 'pred')
          .pivot(index = 'coverage_actual',columns = 'coverage_pred',values = 'pct')
+         .reset_index()
         )
 
         return confusion_matrix

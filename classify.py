@@ -6,7 +6,8 @@ from functools import partial
 import snowflake.snowpark.functions as F
 from snwflk import snowflake_connect
 from gru_models import gru_model_w_mask, gru_model_w_static
-from model import model_train, model_train_cv, eval, eval_cv
+from model import model_train, eval
+from model_cv import model_train_cv, eval_cv
 
 #%%
 
@@ -117,6 +118,8 @@ eval(hierarchy_history_full, hierarchy_preds_full, 'density', hierarchy_mapping)
 eval(hierarchy_history_full, hierarchy_preds_full, 'history', hierarchy_mapping)
 
 eval(hierarchy_history_full, hierarchy_preds_full, 'bin accuracy', hierarchy_mapping)
+
+eval(hierarchy_history_full, hierarchy_preds_full, 'confusion matrix', hierarchy_mapping)
 
 #%%
 
