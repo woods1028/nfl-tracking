@@ -297,11 +297,11 @@ def eval(history, preds, return_type, coverage_mapping):
          .agg(count = ('clip_id','size'))
          .reset_index()
          .assign(pct = lambda x: x['count']/x.groupby('actual')['count'].transform('sum'))
-         .assign(pct = lambda x: x['pct'].round(2))
-         .merge(coverage_mapping.rename(columns = {'coverage':'actual','class':'coverage_actual'})[['actual','coverage_actual']], on = 'actual')
-         .merge(coverage_mapping.rename(columns = {'coverage':'pred','class':'coverage_pred'})[['pred','coverage_pred']], on = 'pred')
-         .pivot(index = 'coverage_actual',columns = 'coverage_pred',values = 'pct')
-         .reset_index()
+        #  .assign(pct = lambda x: x['pct'].round(2))
+        #  .merge(coverage_mapping.rename(columns = {'coverage':'actual','class':'coverage_actual'})[['actual','coverage_actual']], on = 'actual')
+        #  .merge(coverage_mapping.rename(columns = {'coverage':'pred','class':'coverage_pred'})[['pred','coverage_pred']], on = 'pred')
+        #  .pivot(index = 'coverage_actual',columns = 'coverage_pred',values = 'pct')
+        #  .reset_index()
         )
 
         return confusion_matrix

@@ -6,16 +6,6 @@ from tensorflow.keras.layers import Masking, Dense, Dropout, Input, Concatenate,
 #%%
 
 def gru_model(transition_shape, defender_shape, offense_shape):
-    """
-    Build a model using GRU units with CPU-compatible settings.
-    
-    Parameters:
-    transition_shape: Shape of transition features input
-    defender_shape: Shape of defender tracking features input
-    
-    Returns:
-    Compiled model
-    """
     
     # Zone transitions input
     transition_input = Input(shape=transition_shape, name='transition_input')
@@ -69,9 +59,6 @@ def gru_model(transition_shape, defender_shape, offense_shape):
 
 def gru_model_w_mask(transition_feature_dim, defender_feature_dim, offense_feature_dim, 
                      mask_value, model_type = 'sigmoid', num_classes = 2):
-    """
-    Build a model using GRU units that can handle variable-length sequences using RaggedTensors.
-    """
     
     # Zone transitions input
     transition_input = Input(shape = (None, transition_feature_dim), name='transition_input')
@@ -154,7 +141,7 @@ def gru_model_w_static(
     defender_gru = GRU(64, recurrent_activation='sigmoid', reset_after=False)(defender_gru)
     defender_features = Dense(64, activation='relu')(defender_gru)
 
-    # Defender tracking input
+    # Offense tracking input
     offense_input = Input(shape = (None, offense_feature_dim), name='offense_input')
     offense_masked = Masking(mask_value = mask_value)(offense_input)
     offense_gru = GRU(128, return_sequences=True, recurrent_activation='sigmoid', reset_after=False)(offense_masked)

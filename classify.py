@@ -66,7 +66,7 @@ hierarchy_models, hierarchy_histories, hierarchy_preds = model_train_cv(
     'hierarchy', 
     mask_value, 
     batch_size = 32, 
-    num_epochs = 30
+    num_epochs = 50
 )
 
 eval_cv(hierarchy_histories, hierarchy_preds, 'accuracy matrix', hierarchy_mapping)
@@ -125,14 +125,28 @@ eval(hierarchy_history_full, hierarchy_preds_full, 'confusion matrix', hierarchy
 
 hierarchy_model_full.save('hierarchy_model.keras')
 
-# (hierarchy_preds
-#  .rename(columns = {'clip_id':'CLIP_ID'})
-#  .merge(
-#      set_split.to_pandas(),
-#      on = 'CLIP_ID'
-#     )
-#  .to_csv("all_preds_" + datetime.datetime.now().strftime("%Y%m%d") + ".csv",index = False)
-# )
+#%%
+
+(hierarchy_preds_full
+ [['clip_id','actual','pred0','pred1']]
+ .merge(
+     (set_split
+      .to_pandas()
+      .rename(columns = lambda x: x.lower())
+      .rename(columns = {'gameid':'gameId','playid':'playId'})
+      [['gameId','playId','clip_id','coverage','hierarchy','set']]
+     ),
+     on = 'clip_id'
+    )
+ .merge(
+     (coverage_mapping
+      .rename(columns = {'PFF_PASSCOVERAGE':'pff_passCoverage','COVERAGE':'coverage'})
+      [['pff_passCoverage','coverage']]
+     ),
+     on = 'coverage'
+    )
+ .to_csv("preds/hierarchy_preds_" + datetime.datetime.now().strftime("%Y%m%d") + ".csv",index = False)
+)
 
 #%%
 

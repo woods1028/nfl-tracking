@@ -15,12 +15,18 @@ def extract_transition_features(session, df):
     )
 
     x_bins = [-50,-10,10,50]
-    #y_bins = [-100, -20, -10, 0, 15]
-    y_bins = [-100, -20, -15, 0, 15]
+    y_bins = [-100, -20, -10, 0, 15]
 
     x_labels = ["left third","middle","right third"]
-    y_labels = ["real deep", "deep", "hooks", "blitz"]
 
+    if len(y_bins) == 6:
+        
+        y_labels = ["real deep", "deep", "deep hooks", "shallow hooks", "blitz"]
+
+    
+    else:
+
+        y_labels = ["real deep","deep","hooks","blitz"]
 
     x_schema = StructType([
         StructField("xzone", StringType()),
@@ -40,23 +46,16 @@ def extract_transition_features(session, df):
     x_bin_df = session.create_dataframe(x_bin_data, schema = x_schema)
     y_bin_df = session.create_dataframe(y_bin_data, schema = y_schema)
 
-    xzones = [
-        "left third", "left third", "left third", "left third", 
-        "middle", "middle", "middle", "middle", 
-        "right third", "right third", "right third", "right third"
-    ]
+    xzones = [z for w in [[x] * (len(y_bins) - 1) for x in x_labels] for z in w]
 
-    yzones = [
-        "real deep", "deep", "hooks", "blitz", 
-        "real deep", "deep", "hooks", "blitz", 
-        "real deep", "deep", "hooks", "blitz"
-    ]
+    yzones = y_labels * (len(x_bins) - 1)
 
-    zones = [
-        "third_left","third_left","flat_left","blitz",
-        "middle","middle","hooks","blitz",
-        "third_right","third_right","flat_right","blitz"
-    ]
+    deep_zones = len([z for z in y_labels if 'deep' in z])
+    hook_zones = len([z for z in y_labels if 'hook' in z])
+
+    zones = ['third_left'] * (deep_zones + hook_zones - 1) + ["flat_left", "blitz"] + \
+        ['middle'] * deep_zones + ['hooks'] * hook_zones +  ['blitz'] + \
+        ['third_right'] * (deep_zones + hook_zones - 1) + ["flat_right","blitz"]
 
     zone_grid = pd.DataFrame({
         'XZONE':xzones,
@@ -156,18 +155,6 @@ def extract_player_features(df, side):
      .to_pandas()
      .sort_values(['CLIP_ID','FRAMEID','NFLID'])
     )
-
-    # clip_features = []
-
-    # for clip_id in side_df['CLIP_ID'].unique():
-    
-    #     side_group = side_df.query('CLIP_ID == @clip_id').groupby(['FRAMEID'])
-
-    #     frame_features = [np.concatenate(y[model_features].to_numpy()) for _, y in side_group]
-
-    #     frame_features = np.stack(frame_features,axis = 0)    
-
-    #     clip_features.append(frame_features)
 
     clip_groups = side_df.groupby('CLIP_ID')
 
